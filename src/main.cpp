@@ -1,4 +1,4 @@
-//#include <stdio.h>
+#include <stdio.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
@@ -22,6 +22,7 @@ Uint64 frameLength;
 int initEverything();
 int handleEvents();
 void simulate();
+void render();
 
 int main(int argc, char* argv[]) {
     if(initEverything() != SDL_APP_CONTINUE){
@@ -41,8 +42,9 @@ int main(int argc, char* argv[]) {
         if(result == SDL_APP_SUCCESS){
             running = 0;
         }
-        // TODO: move rendering out of simulate into own function.
         simulate();
+
+        render();
 
         frameTimeToComplete = SDL_GetTicks() - frameStart;
         if(1000/ fpsCap > frameTimeToComplete){
@@ -51,7 +53,7 @@ int main(int argc, char* argv[]) {
 
         endTime = SDL_GetPerformanceCounter();
         frameLength = (endTime - startTime) / static_cast<double>(SDL_GetPerformanceFrequency());
-        //printf("%i\n", frameLength);
+        printf("%i\n", frameLength);
     }
 
     if (joystick) {
@@ -88,8 +90,62 @@ int initEverything(){
 }
 
 void simulate(){
+    // put new hsit here
+}
+
+void render(){
+    // Clear window before rendering
+    int winw = 640, winh = 480;
+    const char *text = "hello, please.";
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+    SDL_GetWindowSize(window, &winw, &winh);
+
+    // Show debug text
+    float x, y;
+    x = (((float) winw) - (SDL_strlen(text) * SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE)) / 2.0f;
+    y = (((float) winh) - SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE) / 2.0f;
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_RenderDebugText(renderer, x, y, text);
+
+    // Push everything in buffered renderer to front.
+    SDL_RenderPresent(renderer);
+}
+
+int handleEvents(){
+    SDL_Event event;
+    while(SDL_PollEvent(&event)){
+        if (event.type == SDL_EVENT_QUIT) {
+            return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
+        } else if (event.type == SDL_EVENT_JOYSTICK_ADDED) {
+            /* this event is sent for each hotplugged stick, but also each already-connected joystick during SDL_Init(). */
+            if (joystick == NULL) {  /* we don't have a stick yet and one was added, open it! */
+                joystick = SDL_OpenJoystick(event.jdevice.which);
+                if (!joystick) {
+                    SDL_Log("Failed to open joystick ID %u: %s", (unsigned int) event.jdevice.which, SDL_GetError());
+                }
+            }
+        } else if (event.type == SDL_EVENT_JOYSTICK_REMOVED) {
+            if (joystick && (SDL_GetJoystickID(joystick) == event.jdevice.which)) {
+                SDL_CloseJoystick(joystick);  /* our joystick was unplugged. */
+                joystick = NULL;
+            }
+        }
+        return SDL_APP_CONTINUE;  /* carry on with the program! */    
+    }
+}
 
 
+
+
+
+/**
+This function is just to keep the demo code around so I can refer to it later
+when I want to start capturing controller input.
+It includes event capture and rendering in the same function, so I don't want
+to use it.
+*/
+void demo_example(){
     int winw = 640, winh = 480;
     const char *text = "Plug in a joystick, please.";
     float x, y;
@@ -188,27 +244,5 @@ void simulate(){
     SDL_RenderDebugText(renderer, x, y, text);
     SDL_RenderPresent(renderer);
 
-}
 
-int handleEvents(){
-    SDL_Event event;
-    while(SDL_PollEvent(&event)){
-        if (event.type == SDL_EVENT_QUIT) {
-            return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
-        } else if (event.type == SDL_EVENT_JOYSTICK_ADDED) {
-            /* this event is sent for each hotplugged stick, but also each already-connected joystick during SDL_Init(). */
-            if (joystick == NULL) {  /* we don't have a stick yet and one was added, open it! */
-                joystick = SDL_OpenJoystick(event.jdevice.which);
-                if (!joystick) {
-                    SDL_Log("Failed to open joystick ID %u: %s", (unsigned int) event.jdevice.which, SDL_GetError());
-                }
-            }
-        } else if (event.type == SDL_EVENT_JOYSTICK_REMOVED) {
-            if (joystick && (SDL_GetJoystickID(joystick) == event.jdevice.which)) {
-                SDL_CloseJoystick(joystick);  /* our joystick was unplugged. */
-                joystick = NULL;
-            }
-        }
-        return SDL_APP_CONTINUE;  /* carry on with the program! */    
-    }
 }
