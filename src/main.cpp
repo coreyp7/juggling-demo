@@ -1,8 +1,7 @@
-
+//#include <stdio.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
-#include <stdio.h>
 
 /* We will use this renderer to draw into this window every frame. */
 static SDL_Window *window = NULL;
@@ -24,7 +23,7 @@ int initEverything();
 int handleEvents();
 void simulate();
 
-int main(){
+int main(int argc, char* argv[]) {
     if(initEverything() != SDL_APP_CONTINUE){
         SDL_Log("Someting went bad");
         return -1;
@@ -52,7 +51,7 @@ int main(){
 
         endTime = SDL_GetPerformanceCounter();
         frameLength = (endTime - startTime) / static_cast<double>(SDL_GetPerformanceFrequency());
-        printf("%i\n", frameLength);
+        //printf("%i\n", frameLength);
     }
 
     if (joystick) {
@@ -83,7 +82,7 @@ int initEverything(){
         colors[i].a = 255;
     }
 
-    IMG_LoadTexture(&renderer, "assets/test.png");
+    IMG_LoadTexture(renderer, "assets/test.png");
 
     return SDL_APP_CONTINUE;  /* carry on with the program! */
 }
