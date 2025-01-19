@@ -1,25 +1,4 @@
-/*
- * This example code looks for the current joystick state once per frame,
- * and draws a visual representation of it.
- *
- * This code is public domain. Feel free to use it for any purpose!
- */
 
-/* Joysticks are low-level interfaces: there's something with a bunch of
-   buttons, axes and hats, in no understood order or position. This is
-   a flexible interface, but you'll need to build some sort of configuration
-   UI to let people tell you what button, etc, does what. On top of this
-   interface, SDL offers the "gamepad" API, which works with lots of devices,
-   and knows how to map arbitrary buttons and such to look like an
-   Xbox/PlayStation/etc gamepad. This is easier, and better, for many games,
-   but isn't necessarily a good fit for complex apps and hardware. A flight
-   simulator, a realistic racing game, etc, might want this interface instead
-   of gamepads. */
-
-/* SDL can handle multiple joysticks, but for simplicity, this program only
-   deals with the first stick it sees. */
-
-//#define SDL_MAIN_USE_CALLBACKS 0  /* use the callbacks instead of main() */
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
@@ -30,9 +9,35 @@ static SDL_Renderer *renderer = NULL;
 static SDL_Joystick *joystick = NULL;
 static SDL_Color colors[64];
 
-/* This function runs once at startup. */
-SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
-{
+int initEverything();
+int handleEvents();
+void simulate();
+
+int main(){
+    if(initEverything() != SDL_APP_CONTINUE){
+        SDL_Log("Someting went bad");
+        return -1;
+    }
+    else {
+        SDL_Log("Everythings all good!");
+    }
+    
+    int running = 1;
+    while(running){
+        int result = handleEvents();
+        if(result == SDL_APP_SUCCESS){
+            running = 0;
+        }
+        simulate();
+    }
+
+    if (joystick) {
+        SDL_CloseJoystick(joystick);
+    }
+
+}
+
+int initEverything(){
     int i;
 
     SDL_SetAppMetadata("Example Input Joystick Polling", "1.0", "com.example.input-joystick-polling");
@@ -59,31 +64,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     return SDL_APP_CONTINUE;  /* carry on with the program! */
 }
 
-/* This function runs when a new event (mouse input, keypresses, etc) occurs. */
-SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
-{
-    if (event->type == SDL_EVENT_QUIT) {
-        return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
-    } else if (event->type == SDL_EVENT_JOYSTICK_ADDED) {
-        /* this event is sent for each hotplugged stick, but also each already-connected joystick during SDL_Init(). */
-        if (joystick == NULL) {  /* we don't have a stick yet and one was added, open it! */
-            joystick = SDL_OpenJoystick(event->jdevice.which);
-            if (!joystick) {
-                SDL_Log("Failed to open joystick ID %u: %s", (unsigned int) event->jdevice.which, SDL_GetError());
-            }
-        }
-    } else if (event->type == SDL_EVENT_JOYSTICK_REMOVED) {
-        if (joystick && (SDL_GetJoystickID(joystick) == event->jdevice.which)) {
-            SDL_CloseJoystick(joystick);  /* our joystick was unplugged. */
-            joystick = NULL;
-        }
-    }
-    return SDL_APP_CONTINUE;  /* carry on with the program! */
-}
+void simulate(){
 
-/* This function runs once per frame, and is the heart of the program. */
-SDL_AppResult SDL_AppIterate(void *appstate)
-{
     int winw = 640, winh = 480;
     const char *text = "Plug in a joystick, please.";
     float x, y;
@@ -182,15 +164,27 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     SDL_RenderDebugText(renderer, x, y, text);
     SDL_RenderPresent(renderer);
 
-    return SDL_APP_CONTINUE;  /* carry on with the program! */
 }
 
-/* This function runs once at shutdown. */
-void SDL_AppQuit(void *appstate, SDL_AppResult result)
-{
-    if (joystick) {
-        SDL_CloseJoystick(joystick);
+int handleEvents(){
+    SDL_Event event;
+    while(SDL_PollEvent(&event)){
+        if (event.type == SDL_EVENT_QUIT) {
+            return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
+        } else if (event.type == SDL_EVENT_JOYSTICK_ADDED) {
+            /* this event is sent for each hotplugged stick, but also each already-connected joystick during SDL_Init(). */
+            if (joystick == NULL) {  /* we don't have a stick yet and one was added, open it! */
+                joystick = SDL_OpenJoystick(event.jdevice.which);
+                if (!joystick) {
+                    SDL_Log("Failed to open joystick ID %u: %s", (unsigned int) event.jdevice.which, SDL_GetError());
+                }
+            }
+        } else if (event.type == SDL_EVENT_JOYSTICK_REMOVED) {
+            if (joystick && (SDL_GetJoystickID(joystick) == event.jdevice.which)) {
+                SDL_CloseJoystick(joystick);  /* our joystick was unplugged. */
+                joystick = NULL;
+            }
+        }
+        return SDL_APP_CONTINUE;  /* carry on with the program! */    
     }
-
-    /* SDL will clean up the window/renderer for us. */
 }
