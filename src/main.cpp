@@ -19,6 +19,10 @@ Uint64 startTime;
 Uint64 endTime;
 Uint64 frameLength;
 
+// Simulate stuff
+Uint64 lastUpdate = 0;
+float dt = 0;
+
 int initEverything();
 int handleEvents();
 void simulate();
@@ -90,7 +94,8 @@ int initEverything(){
 }
 
 void simulate(){
-    // put new hsit here
+    dt = (SDL_GetTicks() - lastUpdate) / 1000.f;
+    lastUpdate = SDL_GetTicks();
 }
 
 void render(){
