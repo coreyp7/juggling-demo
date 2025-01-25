@@ -5,8 +5,11 @@
 
 typedef struct {
     Sint16 lsX, lsY, rsX, rsY;
-    bool setup = true; 
+    bool setup; 
 } GamepadInfo;
+
+int WINDOW_W = 1080;
+int WINDOW_H = 720;
 
 /* We will use this renderer to draw into this window every frame. */
 static SDL_Window *window = NULL;
@@ -14,6 +17,8 @@ static SDL_Renderer *renderer = NULL;
 //static SDL_Joystick *joystick = NULL;
 static SDL_Gamepad *gamepad = NULL;
 static SDL_Color colors[64];
+
+static SDL_Texture* hands = NULL;
 
 int fpsCap = 60;
 Uint32 frameTimeToComplete = -1; 
@@ -80,7 +85,7 @@ int main(int argc, char* argv[]) {
         } 
 
         endTime = SDL_GetPerformanceCounter();
-        frameLength = (endTime - startTime) / static_cast<double>(SDL_GetPerformanceFrequency());
+    bool setup;        frameLength = (endTime - startTime) / static_cast<double>(SDL_GetPerformanceFrequency());
         printf("%i\n", frameLength);
     }
 
@@ -112,7 +117,7 @@ int initEverything(){
         colors[i].a = 255;
     }
 
-    IMG_LoadTexture(renderer, "assets/test.png");
+    hands = IMG_LoadTexture(renderer, "assets/hands.png");
 
     return SDL_APP_CONTINUE;  /* carry on with the program! */
 }
@@ -124,11 +129,11 @@ void simulate(){
 
 void render(){
     // Clear window before rendering
-    int winw = 640, winh = 480;
+    int winw = 1080, winh = 720;
     const char *text = "hello, please.";
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
-    SDL_GetWindowSize(window, &winw, &winh);
+    SDL_GetWindowSize(window, &WINDOW_W, &WINDOW_H);
 
     // Show debug text
     float x, y;
@@ -136,6 +141,9 @@ void render(){
     y = (((float) winh) - SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE) / 2.0f;
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     SDL_RenderDebugText(renderer, x, y, text);
+
+    // Render hands
+    SDL_RenderTexture(renderer, hands, NULL, NULL);
 
     // Push everything in buffered renderer to front.
     SDL_RenderPresent(renderer);
