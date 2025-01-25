@@ -10,9 +10,13 @@ typedef struct {
 
 typedef struct {
     int x,y;
-    SDL_Texture* texture;
     SDL_FRect srcRect; // rect on texture to render
 } Hand;
+
+typedef struct {
+    int x,y;
+
+} Ball;
 
 //int WINDOW_W = 1080;
 //int WINDOW_H = 720;
@@ -26,9 +30,11 @@ static SDL_Renderer *renderer = NULL;
 static SDL_Gamepad *gamepad = NULL;
 static SDL_Color colors[64];
 
-static SDL_Texture* hands = NULL;
-Hand rightHand = {0, 0, hands, {680, 0, 680, 861}};
-Hand leftHand = {200, 0, hands, {0, 0, 680, 861}};
+static SDL_Texture* handsTexture = NULL;
+static SDL_Texture* ballTexture = NULL;
+Hand rightHand = {600, 700, {680, 0, 680, 861}};
+Hand leftHand = {200, 700, {0, 0, 680, 861}};
+Ball ball = {300, 50};
 int handSpeed = 17;
 
 int fpsCap = 60;
@@ -129,7 +135,8 @@ int initEverything(){
         colors[i].a = 255;
     }
 
-    hands = IMG_LoadTexture(renderer, "assets/hands.png");
+    handsTexture = IMG_LoadTexture(renderer, "assets/hands.png");
+    ballTexture = IMG_LoadTexture(renderer, "assets/ball.png");
 
     return SDL_APP_CONTINUE;  /* carry on with the program! */
 }
@@ -171,9 +178,13 @@ void render(){
     // Render hands
     //SDL_RenderTexture(renderer, hands, NULL, NULL);
     SDL_FRect rhRect = {rightHand.x, rightHand.y, 150, 150};
-    SDL_RenderTexture(renderer, hands, &(rightHand.srcRect), &rhRect);
+    SDL_RenderTexture(renderer, handsTexture, &(rightHand.srcRect), &rhRect);
     SDL_FRect lhRect = {leftHand.x, leftHand.y, 150, 150};
-    SDL_RenderTexture(renderer, hands, &(leftHand.srcRect), &lhRect);
+    SDL_RenderTexture(renderer, handsTexture, &(leftHand.srcRect), &lhRect);
+
+    // Render balls
+    SDL_FRect ballRect = {ball.x, ball.y, 150, 150};
+    SDL_RenderTexture(renderer, ballTexture, NULL, &ballRect);
 
     // Push everything in buffered renderer to front.
     SDL_RenderPresent(renderer);
