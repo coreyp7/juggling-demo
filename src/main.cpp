@@ -14,8 +14,10 @@ typedef struct {
     SDL_FRect srcRect; // rect on texture to render
 } Hand;
 
-int WINDOW_W = 1080;
-int WINDOW_H = 720;
+//int WINDOW_W = 1080;
+//int WINDOW_H = 720;
+int WINDOW_W = 1920;
+int WINDOW_H = 1080;
 
 /* We will use this renderer to draw into this window every frame. */
 static SDL_Window *window = NULL;
@@ -26,6 +28,7 @@ static SDL_Color colors[64];
 
 static SDL_Texture* hands = NULL;
 Hand rightHand = {0, 0, hands, {680, 0, 680, 861}};
+Hand leftHand = {200, 0, hands, {0, 0, 680, 861}};
 
 int fpsCap = 60;
 Uint32 frameTimeToComplete = -1; 
@@ -57,7 +60,6 @@ int main(int argc, char* argv[]) {
     }
     
     int running = 1;
-    Hand rightHand = {500, 500, hands, {680, 0, 680, 861}};
 
     while(running){
         frameStart = SDL_GetTicks();
@@ -114,7 +116,7 @@ int initEverything(){
         return SDL_APP_FAILURE;
     }
 
-    if (!SDL_CreateWindowAndRenderer("examples/input/joystick-polling", 640, WINDOW_H, 0, &window, &renderer)) {
+    if (!SDL_CreateWindowAndRenderer("examples/input/joystick-polling", WINDOW_W, WINDOW_H, 0, &window, &renderer)) {
         SDL_Log("Couldn't create window/renderer: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
@@ -141,6 +143,13 @@ void simulate(GamepadInfo input){
     if(input.rsY > 10 || input.rsY < -10){
     rightHand.y += input.rsY * dt * 40;
     }
+
+    if(input.lsX > 10 || input.lsX < -10){
+        leftHand.x += input.lsX * dt * 40;
+    }
+    if(input.lsY > 10 || input.lsY < -10){
+        leftHand.y += input.lsY * dt * 40;
+    }
 }
 
 void render(){
@@ -160,8 +169,10 @@ void render(){
 
     // Render hands
     //SDL_RenderTexture(renderer, hands, NULL, NULL);
-    SDL_FRect rect = {rightHand.x, rightHand.y, 300, 300};
-    SDL_RenderTexture(renderer, hands, &(rightHand.srcRect), &rect);
+    SDL_FRect rhRect = {rightHand.x, rightHand.y, 300, 300};
+    SDL_RenderTexture(renderer, hands, &(rightHand.srcRect), &rhRect);
+    SDL_FRect lhRect = {leftHand.x, leftHand.y, 300, 300};
+    SDL_RenderTexture(renderer, hands, &(leftHand.srcRect), &lhRect);
 
     // Push everything in buffered renderer to front.
     SDL_RenderPresent(renderer);
