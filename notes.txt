@@ -1,0 +1,13 @@
+todo list to keep me on task:
+#1: refactor the code from SDL example to work with non built in main function
+replacements. Don't need to provide a visualization, just log it in console.
+    - specifically log the two sticks, and can ignore everything else for now
+
+#2: draw two sprites of whatever; could be hands, just anything
+
+#3: move left/right sprite according to sticks
+
+#4: implement gravity on a new Ball struct
+
+
+
