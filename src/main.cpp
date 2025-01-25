@@ -8,6 +8,12 @@ typedef struct {
     bool setup; 
 } GamepadInfo;
 
+typedef struct {
+    int x,y;
+    SDL_Texture* texture;
+    SDL_FRect srcRect; // rect on texture to render
+} Hand;
+
 int WINDOW_W = 1080;
 int WINDOW_H = 720;
 
@@ -19,6 +25,7 @@ static SDL_Gamepad *gamepad = NULL;
 static SDL_Color colors[64];
 
 static SDL_Texture* hands = NULL;
+Hand rightHand = {0, 0, hands, {680, 0, 680, 861}};
 
 int fpsCap = 60;
 Uint32 frameTimeToComplete = -1; 
@@ -36,7 +43,7 @@ float dt = 0;
 
 int initEverything();
 int handleEvents();
-void simulate();
+void simulate(GamepadInfo input);
 void render();
 GamepadInfo getGamepadInfo();
 
@@ -50,6 +57,8 @@ int main(int argc, char* argv[]) {
     }
     
     int running = 1;
+    Hand rightHand = {500, 500, hands, {680, 0, 680, 861}};
+
     while(running){
         frameStart = SDL_GetTicks();
         startTime = SDL_GetPerformanceCounter();
@@ -75,7 +84,7 @@ int main(int argc, char* argv[]) {
         // input handling (end)
 
         // TODO: pass gamepad info to simulate to handle movement of hands.
-        simulate();
+        simulate(gamepad);
 
         render();
 
@@ -105,7 +114,7 @@ int initEverything(){
         return SDL_APP_FAILURE;
     }
 
-    if (!SDL_CreateWindowAndRenderer("examples/input/joystick-polling", 640, 480, 0, &window, &renderer)) {
+    if (!SDL_CreateWindowAndRenderer("examples/input/joystick-polling", 640, WINDOW_H, 0, &window, &renderer)) {
         SDL_Log("Couldn't create window/renderer: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
@@ -122,9 +131,16 @@ int initEverything(){
     return SDL_APP_CONTINUE;  /* carry on with the program! */
 }
 
-void simulate(){
+void simulate(GamepadInfo input){
     dt = (SDL_GetTicks() - lastUpdate) / 1000.f;
     lastUpdate = SDL_GetTicks();
+
+    if(input.rsX > 10 || input.rsX < -10){
+    rightHand.x += input.rsX * dt * 40;
+    }
+    if(input.rsY > 10 || input.rsY < -10){
+    rightHand.y += input.rsY * dt * 40;
+    }
 }
 
 void render(){
@@ -143,7 +159,9 @@ void render(){
     SDL_RenderDebugText(renderer, x, y, text);
 
     // Render hands
-    SDL_RenderTexture(renderer, hands, NULL, NULL);
+    //SDL_RenderTexture(renderer, hands, NULL, NULL);
+    SDL_FRect rect = {rightHand.x, rightHand.y, 300, 300};
+    SDL_RenderTexture(renderer, hands, &(rightHand.srcRect), &rect);
 
     // Push everything in buffered renderer to front.
     SDL_RenderPresent(renderer);
