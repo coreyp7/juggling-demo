@@ -29,6 +29,7 @@ static SDL_Color colors[64];
 static SDL_Texture* hands = NULL;
 Hand rightHand = {0, 0, hands, {680, 0, 680, 861}};
 Hand leftHand = {200, 0, hands, {0, 0, 680, 861}};
+int handSpeed = 17;
 
 int fpsCap = 60;
 Uint32 frameTimeToComplete = -1; 
@@ -138,17 +139,17 @@ void simulate(GamepadInfo input){
     lastUpdate = SDL_GetTicks();
 
     if(input.rsX > 10 || input.rsX < -10){
-    rightHand.x += input.rsX * dt * 40;
+    rightHand.x += input.rsX * dt * handSpeed;
     }
     if(input.rsY > 10 || input.rsY < -10){
-    rightHand.y += input.rsY * dt * 40;
+    rightHand.y += input.rsY * dt * handSpeed;
     }
 
     if(input.lsX > 10 || input.lsX < -10){
-        leftHand.x += input.lsX * dt * 40;
+        leftHand.x += input.lsX * dt * handSpeed;
     }
     if(input.lsY > 10 || input.lsY < -10){
-        leftHand.y += input.lsY * dt * 40;
+        leftHand.y += input.lsY * dt * handSpeed;
     }
 }
 
@@ -169,9 +170,9 @@ void render(){
 
     // Render hands
     //SDL_RenderTexture(renderer, hands, NULL, NULL);
-    SDL_FRect rhRect = {rightHand.x, rightHand.y, 300, 300};
+    SDL_FRect rhRect = {rightHand.x, rightHand.y, 150, 150};
     SDL_RenderTexture(renderer, hands, &(rightHand.srcRect), &rhRect);
-    SDL_FRect lhRect = {leftHand.x, leftHand.y, 300, 300};
+    SDL_FRect lhRect = {leftHand.x, leftHand.y, 150, 150};
     SDL_RenderTexture(renderer, hands, &(leftHand.srcRect), &lhRect);
 
     // Push everything in buffered renderer to front.
