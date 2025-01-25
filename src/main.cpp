@@ -3,6 +3,11 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
 
+typedef struct {
+    Sint16 lsX, lsY, rsX, rsY;
+    bool setup = true; 
+} GamepadInfo;
+
 /* We will use this renderer to draw into this window every frame. */
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
@@ -28,7 +33,7 @@ int initEverything();
 int handleEvents();
 void simulate();
 void render();
-void print_joysticks();
+GamepadInfo getGamepadInfo();
 
 int main(int argc, char* argv[]) {
     if(initEverything() != SDL_APP_CONTINUE){
@@ -61,9 +66,10 @@ int main(int argc, char* argv[]) {
                 }
             }
         }
-        print_joysticks();
+        GamepadInfo gamepad = getGamepadInfo();
         // input handling (end)
 
+        // TODO: pass gamepad info to simulate to handle movement of hands.
         simulate();
 
         render();
@@ -135,31 +141,28 @@ void render(){
     SDL_RenderPresent(renderer);
 }
 
-
-
-void print_joysticks(){
+GamepadInfo getGamepadInfo(){
     if (!gamepad) {  /* we have a stick opened? */
-        return;
+        return {0, 0, 0, 0, false};
     }
 
-    //const float size = 30.0f;
-    //int total;
-
-    /*
-    int total = SDL_GetNumJoystickAxes(joystick);
-    for (int i = 0; i < total; i++) {
-        const float val = (((float) SDL_GetJoystickAxis(joystick, i)) / 32767.0f);
-        printf("Axis%i: %f\n", i, val); 
-    }
-    */
     Sint16 leftStickX = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFTX);
     Sint16 leftStickY = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFTY);
-    printf("leftStickX: %i, leftStickY: %i\n", leftStickX, leftStickY);
-
     Sint16 rightStickX = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHTX);
     Sint16 rightStickY = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHTY);
-    printf("rightStickX: %i, rightStickY: %i\n", rightStickX, rightStickY);
 
+    // Keep values in between -100 and 100.
+    // Need to ignore "deadzone" values (around -5 to 5)
+    Sint16 lsX = (leftStickX / 32767.0f) * 100;
+    Sint16 lsY = (leftStickY / 32767.0f) * 100;
+    printf("lsX: %i, lsY: %i\n", lsX, lsY);
+    
+    Sint16 rsX = (rightStickX / 32767.0f) * 100;
+    Sint16 rsY = (rightStickY / 32767.0f) * 100;
+    printf("rsX: %i, rsY: %i\n", rsX, rsY);
+
+    GamepadInfo info = {lsX, lsY, rsX, rsY};
+    return info;
 }
 
 
