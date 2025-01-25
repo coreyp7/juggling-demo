@@ -15,7 +15,7 @@ typedef struct {
 
 typedef struct {
     int x,y;
-
+    float xVel, yVel;
 } Ball;
 
 //int WINDOW_W = 1080;
@@ -158,6 +158,11 @@ void simulate(GamepadInfo input){
     if(input.lsY > 10 || input.lsY < -10){
         leftHand.y += input.lsY * dt * handSpeed;
     }
+
+
+    // ball fisics
+    ball.yVel += dt * 450;
+    ball.y += ball.yVel * dt;
 }
 
 void render(){
