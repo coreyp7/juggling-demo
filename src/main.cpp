@@ -4,8 +4,7 @@
 #include <SDL3_image/SDL_image.h>
 
 typedef struct {
-    Sint16 lsX, lsY, rsX, rsY;
-    bool rTrigHeld, lTrigHeld;
+    Sint16 lsX, lsY, rsX, rsY, lTrigHeld, rTrigHeld;
     bool setup; 
 } GamepadInfo;
 
@@ -166,18 +165,35 @@ void simulate(GamepadInfo input){
 
 
     // ball fisics
-    //ball.yVel += dt * 450;
-    ball.yVel += dt * 45;
-    ball.rect.y += ball.yVel * dt;
-    ball.rect.x += ball.xVel * dt;
+    if(ball.isHeld){
+        if(&ball == leftHand.heldBall){
+            ball.rect.x = leftHand.rect.x;
+            ball.rect.y = leftHand.rect.y;
+        } else if(&ball == rightHand.heldBall){
+            ball.rect.x = rightHand.rect.x;
+            ball.rect.y = rightHand.rect.y;
+        }
+    } else {
+        //ball.yVel += dt * 450;
+        ball.yVel += dt * 45;
+        ball.rect.y += ball.yVel * dt;
+        ball.rect.x += ball.xVel * dt;
 
-    // pickup ball if nearby
-    if(isColliding(rightHand.rect, ball.rect)){
-        printf("colliding right hand%i\n", SDL_GetTicks());
-        // pickup in right hand
-    } else if(isColliding(leftHand.rect, ball.rect)){
-        printf("colliding left hand%i\n", SDL_GetTicks());
-        // pickup in left hand
+        // pickup ball if nearby
+        if(isColliding(rightHand.rect, ball.rect) && input.rTrigHeld > 10){
+            printf("colliding right hand%i\n", SDL_GetTicks());
+            /**
+             * 1. Mark ball.isHeld = true
+             * 2. set ref in hand.heldBall
+             * 3. modify simulate to behave differently when ball is held
+             **/
+            ball.isHeld = true;
+            rightHand.heldBall = &ball;
+        } else if(isColliding(leftHand.rect, ball.rect) && input.lTrigHeld > 10){
+            printf("colliding left hand%i\n", SDL_GetTicks());
+            ball.isHeld = true;
+            leftHand.heldBall = &ball;
+        }
     }
 }
 
@@ -245,7 +261,7 @@ GamepadInfo getGamepadInfo(){
     Sint16 rTrigger = (rightTrigger / 32767.0f) * 100;
     //printf("leftTrigger: %i, rightTrigger: %i\n", lTrigger, rTrigger);
 
-    GamepadInfo info = {lsX, lsY, rsX, rsY, leftTrigger, rightTrigger};
+    GamepadInfo info = {lsX, lsY, rsX, rsY, leftTrigger, rightTrigger, true};
     return info;
 }
 
