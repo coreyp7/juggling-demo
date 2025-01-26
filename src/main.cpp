@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <queue>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
@@ -17,6 +18,8 @@ typedef struct {
 typedef struct {
     SDL_FRect rect;
     SDL_FRect srcRect; // rect on texture to render
+    SDL_FRect prevPos;
+    Uint32 prevPosTicks;
     Ball* heldBall;
 } Hand;
 
@@ -35,8 +38,8 @@ static SDL_Color colors[64];
 
 static SDL_Texture* handsTexture = NULL;
 static SDL_Texture* ballTexture = NULL;
-Hand rightHand = {{600, 700, 150, 150}, {680, 0, 680, 861}};
-Hand leftHand = {{200, 700, 150, 150}, {0, 0, 680, 861}};
+Hand rightHand = {{600, 700, 150, 150}, {680, 0, 680, 861}, NULL, 0};
+Hand leftHand = {{200, 700, 150, 150}, {0, 0, 680, 861}, NULL, 0};
 Ball ball = {{600, 0, 150, 150}, 0, 0, false};
 int handSpeed = 17;
 
@@ -149,11 +152,16 @@ void simulate(GamepadInfo input){
     dt = (SDL_GetTicks() - lastUpdate) / 1000.f;
     lastUpdate = SDL_GetTicks();
 
+    float xLeftOld = leftHand.rect.x;
+    float yLeftOld = leftHand.rect.y;
+    float xRightOld = rightHand.rect.x;
+    float yRightOld = rightHand.rect.y;
+
     if(input.rsX > 10 || input.rsX < -10){
-    rightHand.rect.x += input.rsX * dt * handSpeed;
+        rightHand.rect.x += input.rsX * dt * handSpeed;
     }
     if(input.rsY > 10 || input.rsY < -10){
-    rightHand.rect.y += input.rsY * dt * handSpeed;
+        rightHand.rect.y += input.rsY * dt * handSpeed;
     }
 
     if(input.lsX > 10 || input.lsX < -10){
@@ -161,6 +169,26 @@ void simulate(GamepadInfo input){
     }
     if(input.lsY > 10 || input.lsY < -10){
         leftHand.rect.y += input.lsY * dt * handSpeed;
+    }
+
+    float force = 42.f;
+
+    // let go of any held balls if triggers released
+    if(leftHand.heldBall != NULL && input.lTrigHeld < 10){
+        ball.isHeld = false;
+        leftHand.heldBall = NULL;
+        // TODO: send ball in direction
+        SDL_FRect vector = {leftHand.rect.x - xLeftOld, leftHand.rect.y - yLeftOld};
+        ball.xVel = vector.x * force;
+        ball.yVel = vector.y * force;
+    }
+    if(rightHand.heldBall != NULL && input.rTrigHeld < 10){
+        ball.isHeld = false;
+        rightHand.heldBall = NULL;
+        // TODO: send ball in direction
+        SDL_FRect vector = {rightHand.rect.x - xRightOld, rightHand.rect.y - yRightOld};
+        ball.xVel = vector.x * force;
+        ball.yVel = vector.y * force;
     }
 
 
@@ -174,12 +202,12 @@ void simulate(GamepadInfo input){
             ball.rect.y = rightHand.rect.y;
         }
     } else {
-        //ball.yVel += dt * 450;
-        ball.yVel += dt * 45;
+        ball.yVel += dt * 1600;
+        //ball.yVel += dt * 45;
         ball.rect.y += ball.yVel * dt;
         ball.rect.x += ball.xVel * dt;
 
-        // pickup ball if nearby
+        // pickup ball if colliding
         if(isColliding(rightHand.rect, ball.rect) && input.rTrigHeld > 10){
             printf("colliding right hand%i\n", SDL_GetTicks());
             /**
@@ -189,10 +217,14 @@ void simulate(GamepadInfo input){
              **/
             ball.isHeld = true;
             rightHand.heldBall = &ball;
+            ball.xVel = 0;
+            ball.yVel = 0;
         } else if(isColliding(leftHand.rect, ball.rect) && input.lTrigHeld > 10){
             printf("colliding left hand%i\n", SDL_GetTicks());
             ball.isHeld = true;
             leftHand.heldBall = &ball;
+            ball.xVel = 0;
+            ball.yVel = 0;
         }
     }
 }
