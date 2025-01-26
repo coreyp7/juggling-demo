@@ -1,5 +1,6 @@
 #include <stdio.h>
-#include <queue>
+#include <vector>
+#include <string>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
@@ -40,9 +41,13 @@ static SDL_Texture* ballTexture = NULL;
 
 Hand rightHand = {{600, 700, 150, 150}, {680, 0, 680, 861}, NULL, 0};
 Hand leftHand = {{200, 700, 150, 150}, {0, 0, 680, 861}, NULL, 0};
-Ball ball = {{600, 0, 150, 150}, 0, 0, false};
+//Ball ball = {{600, 0, 150, 150}, 0, 0, false};
+std::vector<Ball*> balls;
+
 int handSpeed = 17;
 float handThrowForce = 42.f;
+//int gravity = 1600;
+int gravity = 15;
 
 // Tick counters for performance measuring only
 Uint64 startTime;
@@ -71,6 +76,22 @@ int main(int argc, char* argv[]) {
     }
     
     int running = 1;
+
+    // Setup gamestate (balls)
+    Ball* ball1 = new Ball{{600, 0, 150, 150}, 0, 0, false};
+    //Ball* ball2 = new Ball{{300, 0, 150, 150}, 0, 0, false};
+    Ball* ball2 = new Ball{{leftHand.rect.x, leftHand.rect.y-200, 150, 150}, 0, 0, false};
+    //Ball* ball3 = new Ball{{900, 0, 150, 150}, 0, 0, false};
+    Ball* ball3 = new Ball{{rightHand.rect.x, rightHand.rect.y-200, 150, 150}, 0, 0, false};
+    balls.push_back(ball1); 
+    balls.push_back(ball2); 
+    balls.push_back(ball3); 
+
+    // Put two of the balls into our hands so its easy to start
+    leftHand.heldBall = ball2;
+    rightHand.heldBall = ball3;
+    ball2->isHeld = true;
+    ball3->isHeld = true;
 
     while(running){
         frameStart = SDL_GetTicks();
@@ -124,7 +145,6 @@ int initEverything(){
         return SDL_APP_FAILURE;
     }
 
-
     handsTexture = IMG_LoadTexture(renderer, "assets/hands.png");
     ballTexture = IMG_LoadTexture(renderer, "assets/ball.png");
 
@@ -155,64 +175,69 @@ void simulate(GamepadInfo input){
         leftHand.rect.y += input.lsY * dt * handSpeed;
     }
 
-    // Let go of any held balls if triggers released
+    // Rewrite for many balls
     if(leftHand.heldBall != NULL && input.lTrigHeld < 10){
-        ball.isHeld = false;
-        leftHand.heldBall = NULL;
+        leftHand.heldBall->isHeld = false;
         
         // Draw vector with last position and send ball that way.
         SDL_FRect vector = {leftHand.rect.x - xLeftOld, leftHand.rect.y - yLeftOld};
-        ball.xVel = vector.x * handThrowForce;
-        ball.yVel = vector.y * handThrowForce * 1.2;
+        leftHand.heldBall->xVel = vector.x * handThrowForce;
+        leftHand.heldBall->yVel = vector.y * handThrowForce * 1.2; 
+        
+        leftHand.heldBall = NULL; 
     }
     if(rightHand.heldBall != NULL && input.rTrigHeld < 10){
-        ball.isHeld = false;
-        rightHand.heldBall = NULL;
-
+        rightHand.heldBall->isHeld = false;
+        
         // Draw vector with last position and send ball that way.
         SDL_FRect vector = {rightHand.rect.x - xRightOld, rightHand.rect.y - yRightOld};
-        ball.xVel = vector.x * handThrowForce;
-        ball.yVel = vector.y * handThrowForce * 1.2;
+        rightHand.heldBall->xVel = vector.x * handThrowForce;
+        rightHand.heldBall->yVel = vector.y * handThrowForce * 1.2; 
+
+        rightHand.heldBall = NULL; 
     }
 
-    // ball fisics
+    // ball fisics (2)   
+    
+    // If a ball is being held, then just move it with its hand.
+    // Otherwise, simulate in the air.
+    
+    for(int i=0; i<balls.size(); i++){
+        Ball* ball = balls[i];
+        if(ball->isHeld){
+            if(ball == leftHand.heldBall){
+                ball->rect.x = leftHand.rect.x;
+                ball->rect.y = leftHand.rect.y;
+            } else if(ball == rightHand.heldBall){
+                ball->rect.x = rightHand.rect.x;
+                ball->rect.y = rightHand.rect.y;
+            }
+        } else {
+            // This ball is in the air.
+            //ball->yVel += dt * 1600; // apply gravity
+            ball->yVel += dt * gravity;
+            ball->rect.y += ball->yVel * dt;
+            ball->rect.x += ball->xVel * dt;
 
-    // If the ball is being held, then just move 
-    // it with the hand its being held in.
-    if(ball.isHeld){
-        if(&ball == leftHand.heldBall){
-            ball.rect.x = leftHand.rect.x;
-            ball.rect.y = leftHand.rect.y;
-        } else if(&ball == rightHand.heldBall){
-            ball.rect.x = rightHand.rect.x;
-            ball.rect.y = rightHand.rect.y;
-        }
-    } else {
-        // This ball is in the air.
-        ball.yVel += dt * 1600; // apply gravity
-        ball.rect.y += ball.yVel * dt;
-        ball.rect.x += ball.xVel * dt;
-
-        // Pickup ball if colliding with hand (and trigger pressed)
-        // TODO: differentiate  between "trigger held" and "trigger newly pushed"
-        if(isColliding(rightHand.rect, ball.rect) && input.rTrigHeld > 10){
-            ball.isHeld = true;
-            rightHand.heldBall = &ball;
-            ball.xVel = 0;
-            ball.yVel = 0;
-        } else if(isColliding(leftHand.rect, ball.rect) && input.lTrigHeld > 10){
-            ball.isHeld = true;
-            leftHand.heldBall = &ball;
-            ball.xVel = 0;
-            ball.yVel = 0;
-        }
+            // Pickup ball if colliding with hand (and trigger pressed)
+            // TODO: differentiate  between "trigger held" and "trigger newly pushed"
+            if(isColliding(rightHand.rect, ball->rect) && input.rTrigHeld > 10){
+                ball->isHeld = true;
+                rightHand.heldBall = ball;
+                ball->xVel = 0;
+                ball->yVel = 0;
+            } else if(isColliding(leftHand.rect, ball->rect) && input.lTrigHeld > 10){
+                ball->isHeld = true;
+                leftHand.heldBall = ball;
+                ball->xVel = 0;
+                ball->yVel = 0;
+            }
+        } 
     }
 }
 
 void render(){
     // Clear window before rendering
-    int winw = 1080, winh = 720;
-    const char *text = "hello, please.";
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
     SDL_GetWindowSize(window, &WINDOW_W, &WINDOW_H);
@@ -225,6 +250,7 @@ void render(){
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     SDL_RenderDebugText(renderer, x, y, text);
     */
+    
 
     // Render hands
     //SDL_RenderTexture(renderer, hands, NULL, NULL);
@@ -234,13 +260,51 @@ void render(){
     SDL_RenderTexture(renderer, handsTexture, &(leftHand.srcRect), &lhRect);
 
     // Render balls
-    SDL_FRect ballRect = {ball.rect.x, ball.rect.y, ball.rect.w, ball.rect.h};
-    SDL_RenderTexture(renderer, ballTexture, NULL, &ballRect);
+    for(int i=0; i<balls.size(); i++){
+        Ball* ball = balls[i];
+        SDL_FRect ballRect = {ball->rect.x, ball->rect.y, ball->rect.w, ball->rect.h};
+        SDL_RenderTexture(renderer, ballTexture, NULL, &ballRect);
+    }
 
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
     SDL_RenderRect(renderer, &(rightHand.rect));
     SDL_RenderRect(renderer, &(leftHand.rect));
-    SDL_RenderRect(renderer, &(ball.rect));
+
+    // Just for debugging
+    for(int i=0; i<balls.size(); i++){
+        Ball* ball = balls[i];
+        SDL_RenderRect(renderer, &(ball->rect));
+    }
+
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    float x, y;
+    for(int i=0; i<balls.size(); i++){
+        // Draw ball info
+        Ball* ball = balls[i];
+        std::string ballAddressStr = std::to_string(reinterpret_cast<uintptr_t>(ball));
+        const char* ballAddressCStr = ballAddressStr.c_str();
+
+        x = ball->rect.x + ball->rect.w;
+        y = ball->rect.y + ball->rect.w;
+        std::string xStr = std::to_string(x);
+        std::string yStr = std::to_string(y);
+        std::string xyStr = "pos: "+ xStr + ", " + yStr;
+        const char* xyCStr = xyStr.c_str(); 
+
+        std::string xVelStr = std::to_string(ball->xVel);
+        std::string yVelStr = std::to_string(ball->yVel);
+        std::string xyVelStr = "velocity: "+ xVelStr + ", " + yVelStr;
+        const char* xyCVelStr = xyVelStr.c_str(); 
+
+        std::string isHeldStr = std::to_string(ball->isHeld);
+        const char* isHeldCStr = isHeldStr.c_str();
+
+        SDL_RenderDebugText(renderer, x, y-15, ballAddressCStr);
+        SDL_RenderDebugText(renderer, x, y, xyCStr);
+        SDL_RenderDebugText(renderer, x, y+15, xyCVelStr);
+        SDL_RenderDebugText(renderer, x, y+30, isHeldCStr);
+    }
+    // debugging ends
 
     // Push everything in buffered renderer to front.
     SDL_RenderPresent(renderer);
@@ -307,7 +371,6 @@ int handleEvent(SDL_Event event){
         }
     }
     return 0;
-
 }
 
 
