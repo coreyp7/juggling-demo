@@ -88,10 +88,12 @@ int main(int argc, char* argv[]) {
     balls.push_back(ball3); 
 
     // Put two of the balls into our hands so its easy to start
+    /*
     leftHand.heldBall = ball2;
     rightHand.heldBall = ball3;
     ball2->isHeld = true;
     ball3->isHeld = true;
+    */
 
     while(running){
         frameStart = SDL_GetTicks();
@@ -221,12 +223,20 @@ void simulate(GamepadInfo input){
 
             // Pickup ball if colliding with hand (and trigger pressed)
             // TODO: differentiate  between "trigger held" and "trigger newly pushed"
-            if(isColliding(rightHand.rect, ball->rect) && input.rTrigHeld > 10){
+            if(
+                isColliding(rightHand.rect, ball->rect) && 
+                input.rTrigHeld > 10 &&
+                rightHand.heldBall == NULL 
+            ){
                 ball->isHeld = true;
                 rightHand.heldBall = ball;
                 ball->xVel = 0;
                 ball->yVel = 0;
-            } else if(isColliding(leftHand.rect, ball->rect) && input.lTrigHeld > 10){
+            } else if(
+                isColliding(leftHand.rect, ball->rect) && 
+                input.lTrigHeld > 10 &&
+                leftHand.heldBall == NULL
+            ){
                 ball->isHeld = true;
                 leftHand.heldBall = ball;
                 ball->xVel = 0;
