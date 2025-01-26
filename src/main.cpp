@@ -5,18 +5,22 @@
 
 typedef struct {
     Sint16 lsX, lsY, rsX, rsY;
+    bool rTrigHeld, lTrigHeld;
     bool setup; 
 } GamepadInfo;
 
 typedef struct {
-    int x,y;
-    SDL_FRect srcRect; // rect on texture to render
-} Hand;
+    SDL_FRect rect;
+    float xVel, yVel;
+    bool isHeld;
+} Ball;
 
 typedef struct {
-    int x,y;
-    float xVel, yVel;
-} Ball;
+    SDL_FRect rect;
+    SDL_FRect srcRect; // rect on texture to render
+    Ball* heldBall;
+} Hand;
+
 
 //int WINDOW_W = 1080;
 //int WINDOW_H = 720;
@@ -32,9 +36,9 @@ static SDL_Color colors[64];
 
 static SDL_Texture* handsTexture = NULL;
 static SDL_Texture* ballTexture = NULL;
-Hand rightHand = {600, 700, {680, 0, 680, 861}};
-Hand leftHand = {200, 700, {0, 0, 680, 861}};
-Ball ball = {300, 50};
+Hand rightHand = {{600, 700, 150, 150}, {680, 0, 680, 861}};
+Hand leftHand = {{200, 700, 150, 150}, {0, 0, 680, 861}};
+Ball ball = {{600, 0, 150, 150}, 0, 0, false};
 int handSpeed = 17;
 
 int fpsCap = 60;
@@ -56,6 +60,7 @@ int handleEvents();
 void simulate(GamepadInfo input);
 void render();
 GamepadInfo getGamepadInfo();
+bool isColliding(SDL_FRect rect1, SDL_FRect rect2);
 
 int main(int argc, char* argv[]) {
     if(initEverything() != SDL_APP_CONTINUE){
@@ -104,7 +109,7 @@ int main(int argc, char* argv[]) {
 
         endTime = SDL_GetPerformanceCounter();
     bool setup;        frameLength = (endTime - startTime) / static_cast<double>(SDL_GetPerformanceFrequency());
-        printf("%i\n", frameLength);
+        //printf("%i\n", frameLength);
     }
 
     if (gamepad) {
@@ -146,23 +151,34 @@ void simulate(GamepadInfo input){
     lastUpdate = SDL_GetTicks();
 
     if(input.rsX > 10 || input.rsX < -10){
-    rightHand.x += input.rsX * dt * handSpeed;
+    rightHand.rect.x += input.rsX * dt * handSpeed;
     }
     if(input.rsY > 10 || input.rsY < -10){
-    rightHand.y += input.rsY * dt * handSpeed;
+    rightHand.rect.y += input.rsY * dt * handSpeed;
     }
 
     if(input.lsX > 10 || input.lsX < -10){
-        leftHand.x += input.lsX * dt * handSpeed;
+        leftHand.rect.x += input.lsX * dt * handSpeed;
     }
     if(input.lsY > 10 || input.lsY < -10){
-        leftHand.y += input.lsY * dt * handSpeed;
+        leftHand.rect.y += input.lsY * dt * handSpeed;
     }
 
 
     // ball fisics
-    ball.yVel += dt * 450;
-    ball.y += ball.yVel * dt;
+    //ball.yVel += dt * 450;
+    ball.yVel += dt * 45;
+    ball.rect.y += ball.yVel * dt;
+    ball.rect.x += ball.xVel * dt;
+
+    // pickup ball if nearby
+    if(isColliding(rightHand.rect, ball.rect)){
+        printf("colliding right hand%i\n", SDL_GetTicks());
+        // pickup in right hand
+    } else if(isColliding(leftHand.rect, ball.rect)){
+        printf("colliding left hand%i\n", SDL_GetTicks());
+        // pickup in left hand
+    }
 }
 
 void render(){
@@ -174,22 +190,29 @@ void render(){
     SDL_GetWindowSize(window, &WINDOW_W, &WINDOW_H);
 
     // Show debug text
+    /*
     float x, y;
     x = (((float) winw) - (SDL_strlen(text) * SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE)) / 2.0f;
     y = (((float) winh) - SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE) / 2.0f;
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     SDL_RenderDebugText(renderer, x, y, text);
+    */
 
     // Render hands
     //SDL_RenderTexture(renderer, hands, NULL, NULL);
-    SDL_FRect rhRect = {rightHand.x, rightHand.y, 150, 150};
+    SDL_FRect rhRect = {rightHand.rect.x, rightHand.rect.y, 150, 150};
     SDL_RenderTexture(renderer, handsTexture, &(rightHand.srcRect), &rhRect);
-    SDL_FRect lhRect = {leftHand.x, leftHand.y, 150, 150};
+    SDL_FRect lhRect = {leftHand.rect.x, leftHand.rect.y, 150, 150};
     SDL_RenderTexture(renderer, handsTexture, &(leftHand.srcRect), &lhRect);
 
     // Render balls
-    SDL_FRect ballRect = {ball.x, ball.y, 150, 150};
+    SDL_FRect ballRect = {ball.rect.x, ball.rect.y, ball.rect.w, ball.rect.h};
     SDL_RenderTexture(renderer, ballTexture, NULL, &ballRect);
+
+    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+    SDL_RenderRect(renderer, &(rightHand.rect));
+    SDL_RenderRect(renderer, &(leftHand.rect));
+    SDL_RenderRect(renderer, &(ball.rect));
 
     // Push everything in buffered renderer to front.
     SDL_RenderPresent(renderer);
@@ -205,18 +228,35 @@ GamepadInfo getGamepadInfo(){
     Sint16 rightStickX = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHTX);
     Sint16 rightStickY = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHTY);
 
+    Sint16 leftTrigger = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
+    Sint16 rightTrigger = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
+
     // Keep values in between -100 and 100.
     // Need to ignore "deadzone" values (around -5 to 5)
     Sint16 lsX = (leftStickX / 32767.0f) * 100;
     Sint16 lsY = (leftStickY / 32767.0f) * 100;
-    printf("lsX: %i, lsY: %i\n", lsX, lsY);
+    //printf("lsX: %i, lsY: %i\n", lsX, lsY);
     
     Sint16 rsX = (rightStickX / 32767.0f) * 100;
     Sint16 rsY = (rightStickY / 32767.0f) * 100;
-    printf("rsX: %i, rsY: %i\n", rsX, rsY);
+    //printf("rsX: %i, rsY: %i\n", rsX, rsY);
+    
+    Sint16 lTrigger = (leftTrigger / 32767.0f) * 100;
+    Sint16 rTrigger = (rightTrigger / 32767.0f) * 100;
+    //printf("leftTrigger: %i, rightTrigger: %i\n", lTrigger, rTrigger);
 
-    GamepadInfo info = {lsX, lsY, rsX, rsY};
+    GamepadInfo info = {lsX, lsY, rsX, rsY, leftTrigger, rightTrigger};
     return info;
+}
+
+
+bool isColliding(SDL_FRect rect1, SDL_FRect rect2){
+    //printf("(%f, %f) (%f, %f)\n", rect1.x, rect1.y, rect2.x, rect2.y);
+    if(rect1.x < rect2.x+rect2.w && rect1.x+rect2.w > rect2.x &&
+        rect1.y < rect2.y+rect2.h && rect1.y+rect2.h > rect2.y){
+        return true;
+    }
+    return false;
 }
 
 
