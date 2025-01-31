@@ -6,7 +6,7 @@
 #include <SDL3_image/SDL_image.h>
 
 typedef struct {
-    Sint16 lsX, lsY, rsX, rsY, lTrigHeld, rTrigHeld;
+    Sint16 lsX, lsY, rsX, rsY, lTrigHeld, rTrigHeld, isSouthBtnHeld;
     bool setup; 
 } GamepadInfo;
 
@@ -46,8 +46,9 @@ std::vector<Ball*> balls;
 
 int handSpeed = 17;
 float handThrowForce = 42.f;
-//int gravity = 1600;
-int gravity = 15;
+int gravity = 1600;
+//int gravity = 800;
+//int gravity = 15;
 
 // Tick counters for performance measuring only
 Uint64 startTime;
@@ -65,6 +66,7 @@ void render();
 GamepadInfo getGamepadInfo();
 bool isColliding(SDL_FRect rect1, SDL_FRect rect2);
 int handleEvent(SDL_Event event);
+void resetBallPositions();
 
 int main(int argc, char* argv[]) {
     if(initEverything() != SDL_APP_CONTINUE){
@@ -157,6 +159,11 @@ void simulate(GamepadInfo input){
     dt = (SDL_GetTicks() - lastUpdate) / 1000.f;
     // TODO: look into if this is correct.
     lastUpdate = SDL_GetTicks();
+
+    // reset ball positions
+    if(input.isSouthBtnHeld){
+       resetBallPositions(); 
+    }
 
     float xLeftOld = leftHand.rect.x;
     float yLeftOld = leftHand.rect.y;
@@ -333,6 +340,8 @@ GamepadInfo getGamepadInfo(){
     Sint16 leftTrigger = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
     Sint16 rightTrigger = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
 
+    bool isSouthBtnPressed = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_SOUTH);
+
     // Keep values in between -100 and 100.
     // Need to ignore "deadzone" values (around -5 to 5)
     Sint16 lsX = (leftStickX / 32767.0f) * 100;
@@ -344,7 +353,8 @@ GamepadInfo getGamepadInfo(){
     Sint16 lTrigger = (leftTrigger / 32767.0f) * 100;
     Sint16 rTrigger = (rightTrigger / 32767.0f) * 100;
 
-    GamepadInfo info = {lsX, lsY, rsX, rsY, leftTrigger, rightTrigger, true};
+    GamepadInfo info = {lsX, lsY, rsX, rsY, leftTrigger, rightTrigger, 
+                        isSouthBtnPressed, true};
     return info;
 }
 
@@ -381,6 +391,22 @@ int handleEvent(SDL_Event event){
         }
     }
     return 0;
+}
+
+// hardcoded for 3 balls
+void resetBallPositions(){
+    balls[0]->rect = {rightHand.rect.x, rightHand.rect.y-1000, 150, 150};
+    balls[0]->xVel = 0;
+    balls[0]->yVel = 0;
+    balls[0]->isHeld = false;
+    balls[1]->rect = {leftHand.rect.x, leftHand.rect.y-200, 150, 150};
+    balls[1]->xVel = 0;
+    balls[1]->yVel = 0;
+    balls[1]->isHeld = false;
+    balls[2]->rect = {rightHand.rect.x, rightHand.rect.y-200, 150, 150};
+    balls[2]->xVel = 0;
+    balls[2]->yVel = 0;
+    balls[2]->isHeld = false;
 }
 
 
