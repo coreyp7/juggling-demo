@@ -8,6 +8,7 @@
 typedef struct {
     Sint16 lsX, lsY, rsX, rsY;
     bool lTrigHeld, rTrigHeld, isSouthBtnHeld;
+    Uint64 lTrigPressedTicks, rTrigPressedTicks;
     bool setup; 
 } GamepadInfo;
 
@@ -66,7 +67,7 @@ int initEverything();
 int handleEvents();
 void simulate(GamepadInfo input);
 void render();
-GamepadInfo getGamepadInfo();
+GamepadInfo getGamepadInfo(GamepadInfo prevInput);
 bool isColliding(SDL_FRect rect1, SDL_FRect rect2);
 int handleEvent(SDL_Event event);
 void catchBallIfPossible(GamepadInfo input, Ball* ball);
@@ -102,6 +103,8 @@ int main(int argc, char* argv[]) {
     ball2->isHeld = true;
     ball3->isHeld = true;
     */
+    GamepadInfo currInput = {};
+    GamepadInfo prevInput = {};
 
     while(running){
         frameStart = SDL_GetTicks();
@@ -115,11 +118,12 @@ int main(int argc, char* argv[]) {
                 running = 0;
             }
         }
-        GamepadInfo gamepad = getGamepadInfo();
-        printf("%i, %i\n", gamepad.lTrigHeld, gamepad.rTrigHeld);
+        prevInput = currInput;
+        currInput = getGamepadInfo(prevInput);
+        printf("%i, %i\n", prevInput.lTrigHeld, prevInput.rTrigHeld);
         // input handling (end)
 
-        simulate(gamepad);
+        simulate(currInput);
 
         render();
 
@@ -262,7 +266,7 @@ void render(){
     SDL_RenderPresent(renderer);
 }
 
-GamepadInfo getGamepadInfo(){
+GamepadInfo getGamepadInfo(GamepadInfo prevInput){
     if (!gamepad) {  /* we have a stick opened? */
         return {0, 0, 0, 0, false};
     }
@@ -291,8 +295,31 @@ GamepadInfo getGamepadInfo(){
     bool lTrigPressed = lTrigger > 10;
     bool rTrigPressed = rTrigger > 10;
 
+    Uint64 lTrigPressedTicks, rTrigPressedTicks;
+    rTrigPressedTicks = 0; // remove this after testing
+    lTrigPressedTicks = 0;
+
+    // Figure out if the triggers are really pressed based off of last input.
+    if(prevInput.lTrigHeld && lTrigPressed){
+        // check if its been held for a while
+        if(prevInput.lTrigPressedTicks + 500 < SDL_GetTicks()){
+            lTrigPressed = false;
+            lTrigPressedTicks = 0;
+        } else {
+            lTrigPressedTicks = prevInput.lTrigPressedTicks;
+        }
+    } else if(!prevInput.lTrigHeld && lTrigPressed){
+        // mark fields that it has been pressed at SDL_GetTicks() time
+        lTrigPressedTicks = SDL_GetTicks(); 
+    } else if(prevInput.lTrigHeld && !lTrigPressed){
+        // maybe extra
+        lTrigPressed = false;
+        lTrigPressedTicks = 0;
+    }
+
     GamepadInfo info = {lsX, lsY, rsX, rsY, lTrigPressed, rTrigPressed, 
-                        isSouthBtnPressed, true};
+                        isSouthBtnPressed, lTrigPressedTicks, 
+                        rTrigPressedTicks, true};
     return info;
 }
 
