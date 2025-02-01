@@ -6,7 +6,8 @@
 #include <SDL3_image/SDL_image.h>
 
 typedef struct {
-    Sint16 lsX, lsY, rsX, rsY, lTrigHeld, rTrigHeld, isSouthBtnHeld;
+    Sint16 lsX, lsY, rsX, rsY;
+    bool lTrigHeld, rTrigHeld, isSouthBtnHeld;
     bool setup; 
 } GamepadInfo;
 
@@ -115,6 +116,7 @@ int main(int argc, char* argv[]) {
             }
         }
         GamepadInfo gamepad = getGamepadInfo();
+        printf("%i, %i\n", gamepad.lTrigHeld, gamepad.rTrigHeld);
         // input handling (end)
 
         simulate(gamepad);
@@ -285,8 +287,11 @@ GamepadInfo getGamepadInfo(){
     
     Sint16 lTrigger = (leftTrigger / 32767.0f) * 100;
     Sint16 rTrigger = (rightTrigger / 32767.0f) * 100;
+    
+    bool lTrigPressed = lTrigger > 10;
+    bool rTrigPressed = rTrigger > 10;
 
-    GamepadInfo info = {lsX, lsY, rsX, rsY, leftTrigger, rightTrigger, 
+    GamepadInfo info = {lsX, lsY, rsX, rsY, lTrigPressed, rTrigPressed, 
                         isSouthBtnPressed, true};
     return info;
 }
@@ -353,7 +358,7 @@ void catchBallIfPossible(
 
     if(
         isColliding(rightHand.rect, ball->rect) && 
-        input.rTrigHeld > 10 &&
+        input.rTrigHeld &&
         rightHand.heldBall == NULL 
     ){
         ball->isHeld = true;
@@ -362,7 +367,7 @@ void catchBallIfPossible(
         ball->yVel = 0;
     } else if(
         isColliding(leftHand.rect, ball->rect) && 
-        input.lTrigHeld > 10 &&
+        input.lTrigHeld &&
         leftHand.heldBall == NULL
     ){
         ball->isHeld = true;
@@ -375,7 +380,7 @@ void catchBallIfPossible(
 void releaseBalls(GamepadInfo input, SDL_FRect oldLeftHandPos, SDL_FRect oldRightHandPos){
     // Check if either hand collides and put ball in caught state with the hand
     // Draw vector with last position and send ball that way.
-    if(leftHand.heldBall != NULL && input.lTrigHeld < 10){
+    if(leftHand.heldBall != NULL && !input.lTrigHeld){
         leftHand.heldBall->isHeld = false;
         
         SDL_FRect vector = {
@@ -388,7 +393,7 @@ void releaseBalls(GamepadInfo input, SDL_FRect oldLeftHandPos, SDL_FRect oldRigh
         
         leftHand.heldBall = NULL; 
     }
-    if(rightHand.heldBall != NULL && input.rTrigHeld < 10){
+    if(rightHand.heldBall != NULL && !input.rTrigHeld){
         rightHand.heldBall->isHeld = false;
         
         // Draw vector with last position and send ball that way.
