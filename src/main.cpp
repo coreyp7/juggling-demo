@@ -14,6 +14,7 @@ typedef struct {
     SDL_FRect rect;
     float xVel, yVel;
     bool isHeld;
+    Uint64 lastTimeHeld;
 } Ball;
 
 typedef struct {
@@ -46,6 +47,7 @@ std::vector<Ball*> balls;
 
 int handSpeed = 17;
 float handThrowForce = 42.f;
+float handThrowForceVerticalMultiplier = 1.8;
 int gravity = 1600;
 //int gravity = 800;
 //int gravity = 15;
@@ -66,7 +68,10 @@ void render();
 GamepadInfo getGamepadInfo();
 bool isColliding(SDL_FRect rect1, SDL_FRect rect2);
 int handleEvent(SDL_Event event);
+void catchBallIfPossible(GamepadInfo input, Ball* ball);
 void resetBallPositions();
+void releaseBalls(GamepadInfo input, SDL_FRect oldLeftHandPos, SDL_FRect oldRightHandPos);
+void renderDebugStuff();
 
 int main(int argc, char* argv[]) {
     if(initEverything() != SDL_APP_CONTINUE){
@@ -160,16 +165,19 @@ void simulate(GamepadInfo input){
     // TODO: look into if this is correct.
     lastUpdate = SDL_GetTicks();
 
-    // reset ball positions
+    // reset ball positions if pressed
     if(input.isSouthBtnHeld){
        resetBallPositions(); 
     }
 
-    float xLeftOld = leftHand.rect.x;
-    float yLeftOld = leftHand.rect.y;
-    float xRightOld = rightHand.rect.x;
-    float yRightOld = rightHand.rect.y;
+    //float xLeftOld = leftHand.rect.x;
+    //float yLeftOld = leftHand.rect.y;
+    //float xRightOld = rightHand.rect.x;
+    //float yRightOld = rightHand.rect.y;
+    SDL_FRect oldLeftHandPos = leftHand.rect;
+    SDL_FRect oldRightHandPos = rightHand.rect;
 
+    // Move hands from joystick movement
     if(input.rsX > 10 || input.rsX < -10){
         rightHand.rect.x += input.rsX * dt * handSpeed;
     }
@@ -184,36 +192,14 @@ void simulate(GamepadInfo input){
         leftHand.rect.y += input.lsY * dt * handSpeed;
     }
 
-    // Rewrite for many balls
-    if(leftHand.heldBall != NULL && input.lTrigHeld < 10){
-        leftHand.heldBall->isHeld = false;
-        
-        // Draw vector with last position and send ball that way.
-        SDL_FRect vector = {leftHand.rect.x - xLeftOld, leftHand.rect.y - yLeftOld};
-        leftHand.heldBall->xVel = vector.x * handThrowForce;
-        leftHand.heldBall->yVel = vector.y * handThrowForce * 1.2; 
-        
-        leftHand.heldBall = NULL; 
-    }
-    if(rightHand.heldBall != NULL && input.rTrigHeld < 10){
-        rightHand.heldBall->isHeld = false;
-        
-        // Draw vector with last position and send ball that way.
-        SDL_FRect vector = {rightHand.rect.x - xRightOld, rightHand.rect.y - yRightOld};
-        rightHand.heldBall->xVel = vector.x * handThrowForce;
-        rightHand.heldBall->yVel = vector.y * handThrowForce * 1.2; 
+    releaseBalls(input, oldLeftHandPos, oldRightHandPos);
 
-        rightHand.heldBall = NULL; 
-    }
-
-    // ball fisics (2)   
-    
-    // If a ball is being held, then just move it with its hand.
-    // Otherwise, simulate in the air.
-    
+    // ball fisics
+    // loop through all balls and simulate 
     for(int i=0; i<balls.size(); i++){
         Ball* ball = balls[i];
         if(ball->isHeld){
+            // If a ball is being held, then just move it with its hand.
             if(ball == leftHand.heldBall){
                 ball->rect.x = leftHand.rect.x;
                 ball->rect.y = leftHand.rect.y;
@@ -223,32 +209,13 @@ void simulate(GamepadInfo input){
             }
         } else {
             // This ball is in the air.
-            //ball->yVel += dt * 1600; // apply gravity
             ball->yVel += dt * gravity;
             ball->rect.y += ball->yVel * dt;
             ball->rect.x += ball->xVel * dt;
 
             // Pickup ball if colliding with hand (and trigger pressed)
             // TODO: differentiate  between "trigger held" and "trigger newly pushed"
-            if(
-                isColliding(rightHand.rect, ball->rect) && 
-                input.rTrigHeld > 10 &&
-                rightHand.heldBall == NULL 
-            ){
-                ball->isHeld = true;
-                rightHand.heldBall = ball;
-                ball->xVel = 0;
-                ball->yVel = 0;
-            } else if(
-                isColliding(leftHand.rect, ball->rect) && 
-                input.lTrigHeld > 10 &&
-                leftHand.heldBall == NULL
-            ){
-                ball->isHeld = true;
-                leftHand.heldBall = ball;
-                ball->xVel = 0;
-                ball->yVel = 0;
-            }
+            catchBallIfPossible(input, ball);
         } 
     }
 }
@@ -287,41 +254,7 @@ void render(){
     SDL_RenderRect(renderer, &(rightHand.rect));
     SDL_RenderRect(renderer, &(leftHand.rect));
 
-    // Just for debugging
-    for(int i=0; i<balls.size(); i++){
-        Ball* ball = balls[i];
-        SDL_RenderRect(renderer, &(ball->rect));
-    }
-
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    float x, y;
-    for(int i=0; i<balls.size(); i++){
-        // Draw ball info
-        Ball* ball = balls[i];
-        std::string ballAddressStr = std::to_string(reinterpret_cast<uintptr_t>(ball));
-        const char* ballAddressCStr = ballAddressStr.c_str();
-
-        x = ball->rect.x + ball->rect.w;
-        y = ball->rect.y + ball->rect.w;
-        std::string xStr = std::to_string(x);
-        std::string yStr = std::to_string(y);
-        std::string xyStr = "pos: "+ xStr + ", " + yStr;
-        const char* xyCStr = xyStr.c_str(); 
-
-        std::string xVelStr = std::to_string(ball->xVel);
-        std::string yVelStr = std::to_string(ball->yVel);
-        std::string xyVelStr = "velocity: "+ xVelStr + ", " + yVelStr;
-        const char* xyCVelStr = xyVelStr.c_str(); 
-
-        std::string isHeldStr = std::to_string(ball->isHeld);
-        const char* isHeldCStr = isHeldStr.c_str();
-
-        SDL_RenderDebugText(renderer, x, y-15, ballAddressCStr);
-        SDL_RenderDebugText(renderer, x, y, xyCStr);
-        SDL_RenderDebugText(renderer, x, y+15, xyCVelStr);
-        SDL_RenderDebugText(renderer, x, y+30, isHeldCStr);
-    }
-    // debugging ends
+    renderDebugStuff();
 
     // Push everything in buffered renderer to front.
     SDL_RenderPresent(renderer);
@@ -409,4 +342,106 @@ void resetBallPositions(){
     balls[2]->isHeld = false;
 }
 
+void catchBallIfPossible(
+    GamepadInfo input,
+    Ball* ball
+){
+    if(ball->lastTimeHeld + 500 > SDL_GetTicks()){
+        // Ball cannot be caught yet, its been released recently. 
+        return;
+    }
+
+    if(
+        isColliding(rightHand.rect, ball->rect) && 
+        input.rTrigHeld > 10 &&
+        rightHand.heldBall == NULL 
+    ){
+        ball->isHeld = true;
+        rightHand.heldBall = ball;
+        ball->xVel = 0;
+        ball->yVel = 0;
+    } else if(
+        isColliding(leftHand.rect, ball->rect) && 
+        input.lTrigHeld > 10 &&
+        leftHand.heldBall == NULL
+    ){
+        ball->isHeld = true;
+        leftHand.heldBall = ball;
+        ball->xVel = 0;
+        ball->yVel = 0;
+    }
+}
+
+void releaseBalls(GamepadInfo input, SDL_FRect oldLeftHandPos, SDL_FRect oldRightHandPos){
+    // Check if either hand collides and put ball in caught state with the hand
+    // Draw vector with last position and send ball that way.
+    if(leftHand.heldBall != NULL && input.lTrigHeld < 10){
+        leftHand.heldBall->isHeld = false;
+        
+        SDL_FRect vector = {
+            leftHand.rect.x - oldLeftHandPos.x, 
+            leftHand.rect.y - oldLeftHandPos.y
+        };
+        leftHand.heldBall->xVel = vector.x * handThrowForce;
+        leftHand.heldBall->yVel = vector.y * handThrowForce * handThrowForceVerticalMultiplier; 
+        leftHand.heldBall->lastTimeHeld = SDL_GetTicks();
+        
+        leftHand.heldBall = NULL; 
+    }
+    if(rightHand.heldBall != NULL && input.rTrigHeld < 10){
+        rightHand.heldBall->isHeld = false;
+        
+        // Draw vector with last position and send ball that way.
+        SDL_FRect vector = {
+            rightHand.rect.x - oldRightHandPos.x, 
+            rightHand.rect.y - oldRightHandPos.y
+        };
+        rightHand.heldBall->xVel = vector.x * handThrowForce;
+        rightHand.heldBall->yVel = vector.y * handThrowForce * handThrowForceVerticalMultiplier; 
+        rightHand.heldBall->lastTimeHeld = SDL_GetTicks();
+
+        rightHand.heldBall = NULL; 
+    }
+}
+
+void renderDebugStuff(){
+    for(int i=0; i<balls.size(); i++){
+        Ball* ball = balls[i];
+        SDL_RenderRect(renderer, &(ball->rect));
+    }
+
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    float x, y;
+    for(int i=0; i<balls.size(); i++){
+        // Draw ball info
+        Ball* ball = balls[i];
+        std::string ballAddressStr = std::to_string(reinterpret_cast<uintptr_t>(ball));
+        const char* ballAddressCStr = ballAddressStr.c_str();
+
+        x = ball->rect.x + ball->rect.w;
+        y = ball->rect.y + ball->rect.w;
+        std::string xStr = std::to_string(x);
+        std::string yStr = std::to_string(y);
+        std::string xyStr = "pos: "+ xStr + ", " + yStr;
+        const char* xyCStr = xyStr.c_str(); 
+
+        std::string xVelStr = std::to_string(ball->xVel);
+        std::string yVelStr = std::to_string(ball->yVel);
+        std::string xyVelStr = "velocity: "+ xVelStr + ", " + yVelStr;
+        const char* xyCVelStr = xyVelStr.c_str(); 
+
+        std::string isHeldStr = std::to_string(ball->isHeld);
+        const char* isHeldCStr = isHeldStr.c_str();
+
+        std::string canBeHeldStr = std::to_string(ball->lastTimeHeld + 500 > SDL_GetTicks());
+        const char* canBeHeldCStr = canBeHeldStr.c_str(); 
+
+        SDL_RenderDebugText(renderer, x, y-15, ballAddressCStr);
+        SDL_RenderDebugText(renderer, x, y, xyCStr);
+        SDL_RenderDebugText(renderer, x, y+15, xyCVelStr);
+        SDL_RenderDebugText(renderer, x, y+30, isHeldCStr);
+        SDL_RenderDebugText(renderer, x, y+45, canBeHeldCStr);
+    }
+
+}
 
