@@ -5,6 +5,8 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
 
+#define SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE 50
+
 typedef struct {
     Sint16 lsX, lsY, rsX, rsY;
     bool lTrigPressed, lTrigHeld;
@@ -393,11 +395,12 @@ void catchBallIfPossible(
         ball->yVel = 0;
     } else if(
         isColliding(leftHand.rect, ball->rect) && 
-        input.lTrigHeld &&
+        leftHand.status == CLOSING &&
         leftHand.heldBall == NULL
     ){
         ball->isHeld = true;
         leftHand.heldBall = ball;
+        leftHand.status = CLOSED;
         ball->xVel = 0;
         ball->yVel = 0;
     }
