@@ -244,16 +244,6 @@ void render(){
     SDL_RenderClear(renderer);
     SDL_GetWindowSize(window, &WINDOW_W, &WINDOW_H);
 
-    // Show debug text (leaving here for later)
-    /*
-    float x, y;
-    x = (((float) winw) - (SDL_strlen(text) * SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE)) / 2.0f;
-    y = (((float) winh) - SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE) / 2.0f;
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    SDL_RenderDebugText(renderer, x, y, text);
-    */
-    
-
     // Render hands
     //SDL_RenderTexture(renderer, hands, NULL, NULL);
     SDL_FRect rhRect = {rightHand.rect.x, rightHand.rect.y, 150, 150};
@@ -385,11 +375,12 @@ void catchBallIfPossible(
 
     if(
         isColliding(rightHand.rect, ball->rect) && 
-        input.rTrigHeld &&
+        rightHand.status == CLOSING &&
         rightHand.heldBall == NULL 
     ){
         ball->isHeld = true;
         rightHand.heldBall = ball;
+        rightHand.status = CLOSED;
         ball->xVel = 0;
         ball->yVel = 0;
     } else if(
@@ -544,6 +535,7 @@ void updateHandState(GamepadInfo input){
     }
 
     // Right
+    // Left
     if(input.rTrigPressed && rightHand.status == OPEN){
         rightHand.status = CLOSING;
         rightHand.closingStartTicks = SDL_GetTicks();
@@ -556,8 +548,21 @@ void updateHandState(GamepadInfo input){
         rightHand.closingStartTicks = 0;
     }
 
-    if(input.rTrigHeld == false){
+    // Start opening
+    if(input.rTrigHeld == false && rightHand.status == CLOSED){
+        rightHand.status = OPENING;
+        rightHand.openingStartTicks = SDL_GetTicks();
+    } else if(rightHand.status == OPENING && 
+                rightHand.openingStartTicks + 95 < SDL_GetTicks()){
         rightHand.status = OPEN;
+        rightHand.openingStartTicks = 0;
+        // TODO: if trigger is held when switching from OPENING to OPEN,
+        // then we want to instantly transition from OPEN to CLOSING.
+        // Game feel thing.
+        if(input.rTrigHeld){
+            rightHand.status = CLOSING;
+            rightHand.closingStartTicks = SDL_GetTicks();
+        }
     }
     
 
