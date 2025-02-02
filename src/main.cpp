@@ -55,6 +55,8 @@ static SDL_Texture* ballTexture = NULL;
 
 Hand rightHand = {{600, 700, 150, 150}, {680, 0, 680, 861}, NULL, 0};
 Hand leftHand = {{200, 700, 150, 150}, {0, 0, 680, 861}, NULL, 0};
+Hand* hands[2] = {&rightHand, &leftHand};
+//hands[1] = &leftHand;
 //Ball ball = {{600, 0, 150, 150}, 0, 0, false};
 std::vector<Ball*> balls;
 
@@ -478,33 +480,37 @@ void renderDebugStuff(){
     }
 
     // Draw hands
-    std::string heldBallAddressStr = std::to_string(reinterpret_cast<uintptr_t>(leftHand.heldBall));     
-    const char* heldBallAddressCStr = heldBallAddressStr.c_str();
+    for(int i=0; i<2; i++){
+        Hand* hand = hands[i];
 
-    std::string statusStr; 
-    switch(leftHand.status){
-        case OPEN: statusStr = "OPEN"; break;
-        case CLOSING: statusStr = "CLOSING"; break;
-        case CLOSED: statusStr = "CLOSED"; break;
+        std::string heldBallAddressStr = std::to_string(reinterpret_cast<uintptr_t>(hand->heldBall));     
+        const char* heldBallAddressCStr = heldBallAddressStr.c_str();
+
+        std::string statusStr; 
+        switch(hand->status){
+            case OPEN: statusStr = "OPEN"; break;
+            case CLOSING: statusStr = "CLOSING"; break;
+            case CLOSED: statusStr = "CLOSED"; break;
+        }
+        const char* statusCStr = statusStr.c_str();
+
+        SDL_RenderDebugText(renderer, 
+            hand->rect.x + hand->rect.w, 
+            hand->rect.y, 
+            heldBallAddressCStr);
+
+        SDL_RenderDebugText(renderer, 
+            hand->rect.x + hand->rect.w, 
+            hand->rect.y + 15,
+            statusCStr);
     }
-    const char* statusCStr = statusStr.c_str();
-
-    SDL_RenderDebugText(renderer, 
-        leftHand.rect.x + leftHand.rect.w, 
-        leftHand.rect.y, 
-        heldBallAddressCStr);
-
-    SDL_RenderDebugText(renderer, 
-        leftHand.rect.x + leftHand.rect.w, 
-        leftHand.rect.y + 15,
-        statusCStr);
-    
 }
 
 void updateHandState(GamepadInfo input){
     // Update status depending on triggers.
     // If closing, check ticks to see if its time to close the hand without a ball.
 
+    // Left
     if(input.lTrigPressed && leftHand.status == OPEN){
         leftHand.status = CLOSING;
         leftHand.closingStartTicks = SDL_GetTicks();
@@ -520,6 +526,24 @@ void updateHandState(GamepadInfo input){
     if(input.lTrigHeld == false){
         leftHand.status = OPEN;
     }
+
+    // Right
+    if(input.rTrigPressed && rightHand.status == OPEN){
+        rightHand.status = CLOSING;
+        rightHand.closingStartTicks = SDL_GetTicks();
+    }
+
+    if(input.rTrigHeld && rightHand.status == CLOSING && 
+        rightHand.closingStartTicks + 125 < SDL_GetTicks()){
+        // the hand is closed now 
+        rightHand.status = CLOSED;
+        rightHand.closingStartTicks = 0;
+    }
+
+    if(input.rTrigHeld == false){
+        rightHand.status = OPEN;
+    }
+    
 
     // will do same thing for right hand later
 }
