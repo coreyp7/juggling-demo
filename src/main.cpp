@@ -9,6 +9,7 @@ typedef struct {
     Sint16 lsX, lsY, rsX, rsY;
     bool lTrigPressed, lTrigHeld;
     bool rTrigPressed, rTrigHeld;
+    bool isSouthBtnHeld;
     bool setup; //TODO: maybe delete this shit
 } GamepadInfo;
 
@@ -32,6 +33,7 @@ typedef struct {
     Uint32 prevPosTicks;
     Ball* heldBall;
     HandStatus status;
+    Uint64 closingStartTicks;
 } Hand;
 
 int WINDOW_W = 1920;
@@ -81,6 +83,7 @@ void catchBallIfPossible(GamepadInfo input, Ball* ball);
 void resetBallPositions();
 void releaseBalls(GamepadInfo input, SDL_FRect oldLeftHandPos, SDL_FRect oldRightHandPos);
 void renderDebugStuff();
+void updateHandState(GamepadInfo input);
 
 int main(int argc, char* argv[]) {
     if(initEverything() != SDL_APP_CONTINUE){
@@ -183,10 +186,6 @@ void simulate(GamepadInfo input){
        resetBallPositions(); 
     }
 
-    //float xLeftOld = leftHand.rect.x;
-    //float yLeftOld = leftHand.rect.y;
-    //float xRightOld = rightHand.rect.x;
-    //float yRightOld = rightHand.rect.y;
     SDL_FRect oldLeftHandPos = leftHand.rect;
     SDL_FRect oldRightHandPos = rightHand.rect;
 
@@ -206,6 +205,7 @@ void simulate(GamepadInfo input){
     }
 
     releaseBalls(input, oldLeftHandPos, oldRightHandPos);
+
 
     // ball fisics
     // loop through all balls and simulate 
@@ -231,6 +231,8 @@ void simulate(GamepadInfo input){
             catchBallIfPossible(input, ball);
         } 
     }
+
+    updateHandState(input);
 }
 
 void render(){
@@ -315,9 +317,9 @@ GamepadInfo getGamepadInfo(GamepadInfo prevInput){
     }
 
     GamepadInfo inputInfo = {lsX, lsY, rsX, rsY, 
-                            lTrigPressed, lTrigHeld, rTrigPressed, rTrigheld,
-                            true};
-    return info;
+                            lTrigPressed, lTrigHeld, rTrigPressed, rTrigHeld,
+                            isSouthBtnPressed, true};
+    return inputInfo;
 }
 
 
@@ -472,5 +474,50 @@ void renderDebugStuff(){
         SDL_RenderDebugText(renderer, x, y+45, canBeHeldCStr);
     }
 
+    // Draw hands
+    std::string heldBallAddressStr = std::to_string(reinterpret_cast<uintptr_t>(leftHand.heldBall));     
+    const char* heldBallAddressCStr = heldBallAddressStr.c_str();
+
+    std::string statusStr; 
+    switch(leftHand.status){
+        case OPEN: statusStr = "OPEN"; break;
+        case CLOSING: statusStr = "CLOSING"; break;
+        case CLOSED: statusStr = "CLOSED"; break;
+    }
+    const char* statusCStr = statusStr.c_str();
+
+    SDL_RenderDebugText(renderer, 
+        leftHand.rect.x + leftHand.rect.w, 
+        leftHand.rect.y, 
+        heldBallAddressCStr);
+
+    SDL_RenderDebugText(renderer, 
+        leftHand.rect.x + leftHand.rect.w, 
+        leftHand.rect.y + 15,
+        statusCStr);
+    
+}
+
+void updateHandState(GamepadInfo input){
+    // Update status depending on triggers.
+    // If closing, check ticks to see if its time to close the hand without a ball.
+
+    if(input.lTrigPressed && leftHand.status == OPEN){
+        leftHand.status = CLOSING;
+        leftHand.closingStartTicks = SDL_GetTicks();
+    }
+
+    if(input.lTrigHeld && leftHand.status == CLOSING && 
+        leftHand.closingStartTicks + 125 < SDL_GetTicks()){
+        // the hand is closed now 
+        leftHand.status = CLOSED;
+        leftHand.closingStartTicks = 0;
+    }
+
+    if(input.lTrigHeld == false){
+        leftHand.status = OPEN;
+    }
+
+    // will do same thing for right hand later
 }
 
