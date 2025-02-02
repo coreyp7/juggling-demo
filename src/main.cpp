@@ -5,14 +5,11 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
 
-#define SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE 50
-
 typedef struct {
     Sint16 lsX, lsY, rsX, rsY;
     bool lTrigPressed, lTrigHeld;
     bool rTrigPressed, rTrigHeld;
     bool isSouthBtnHeld;
-    bool setup; //TODO: maybe delete this shit
 } GamepadInfo;
 
 typedef struct {
@@ -25,7 +22,8 @@ typedef struct {
 enum HandStatus {
     OPEN,
     CLOSING,
-    CLOSED
+    CLOSED,
+    OPENING
 };
 
 typedef struct {
@@ -36,6 +34,7 @@ typedef struct {
     Ball* heldBall;
     HandStatus status;
     Uint64 closingStartTicks;
+    Uint64 openingStartTicks;
 } Hand;
 
 int WINDOW_W = 1920;
@@ -134,7 +133,7 @@ int main(int argc, char* argv[]) {
         }
         prevInput = currInput;
         currInput = getGamepadInfo(prevInput);
-        printf("%i, %i\n", prevInput.lTrigHeld, prevInput.rTrigHeld);
+        //printf("%i, %i\n", prevInput.lTrigHeld, prevInput.rTrigHeld);
         // input handling (end)
 
         simulate(currInput);
@@ -270,8 +269,6 @@ void render(){
     }
 
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-    SDL_RenderRect(renderer, &(rightHand.rect));
-    SDL_RenderRect(renderer, &(leftHand.rect));
 
     renderDebugStuff();
 
@@ -281,7 +278,7 @@ void render(){
 
 GamepadInfo getGamepadInfo(GamepadInfo prevInput){
     if (!gamepad) {  /* we have a stick opened? */
-        return {0, 0, 0, 0, false};
+        return {0, 0, 0, 0};
     }
 
     Sint16 leftStickX = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFTX);
@@ -322,7 +319,7 @@ GamepadInfo getGamepadInfo(GamepadInfo prevInput){
 
     GamepadInfo inputInfo = {lsX, lsY, rsX, rsY, 
                             lTrigPressed, lTrigHeld, rTrigPressed, rTrigHeld,
-                            isSouthBtnPressed, true};
+                            isSouthBtnPressed};
     return inputInfo;
 }
 
@@ -381,7 +378,7 @@ void catchBallIfPossible(
     GamepadInfo input,
     Ball* ball
 ){
-    if(ball->lastTimeHeld + 500 > SDL_GetTicks()){
+    if(ball->lastTimeHeld + 400 > SDL_GetTicks()){
         // Ball cannot be caught yet, its been released recently. 
         return;
     }
@@ -441,6 +438,7 @@ void releaseBalls(GamepadInfo input, SDL_FRect oldLeftHandPos, SDL_FRect oldRigh
 }
 
 void renderDebugStuff(){
+    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
     for(int i=0; i<balls.size(); i++){
         Ball* ball = balls[i];
         SDL_RenderRect(renderer, &(ball->rect));
@@ -480,6 +478,10 @@ void renderDebugStuff(){
     }
 
     // Draw hands
+    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+    SDL_RenderRect(renderer, &(rightHand.rect));
+    SDL_RenderRect(renderer, &(leftHand.rect));
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     for(int i=0; i<2; i++){
         Hand* hand = hands[i];
 
@@ -491,6 +493,7 @@ void renderDebugStuff(){
             case OPEN: statusStr = "OPEN"; break;
             case CLOSING: statusStr = "CLOSING"; break;
             case CLOSED: statusStr = "CLOSED"; break;
+            case OPENING: statusStr = "OPENING"; break;
         }
         const char* statusCStr = statusStr.c_str();
 
@@ -523,8 +526,21 @@ void updateHandState(GamepadInfo input){
         leftHand.closingStartTicks = 0;
     }
 
-    if(input.lTrigHeld == false){
+    // Start opening
+    if(input.lTrigHeld == false && leftHand.status == CLOSED){
+        leftHand.status = OPENING;
+        leftHand.openingStartTicks = SDL_GetTicks();
+    } else if(leftHand.status == OPENING && 
+                leftHand.openingStartTicks + 95 < SDL_GetTicks()){
         leftHand.status = OPEN;
+        leftHand.openingStartTicks = 0;
+        // TODO: if trigger is held when switching from OPENING to OPEN,
+        // then we want to instantly transition from OPEN to CLOSING.
+        // Game feel thing.
+        if(input.lTrigHeld){
+            leftHand.status = CLOSING;
+            leftHand.closingStartTicks = SDL_GetTicks();
+        }
     }
 
     // Right
