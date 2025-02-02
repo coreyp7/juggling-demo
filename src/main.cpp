@@ -7,9 +7,9 @@
 
 typedef struct {
     Sint16 lsX, lsY, rsX, rsY;
-    bool lTrigHeld, rTrigHeld, isSouthBtnHeld;
-    Uint64 lTrigPressedTicks, rTrigPressedTicks;
-    bool setup; 
+    bool lTrigPressed, lTrigHeld;
+    bool rTrigPressed, rTrigHeld;
+    bool setup; //TODO: maybe delete this shit
 } GamepadInfo;
 
 typedef struct {
@@ -19,12 +19,19 @@ typedef struct {
     Uint64 lastTimeHeld;
 } Ball;
 
+enum HandStatus {
+    OPEN,
+    CLOSING,
+    CLOSED
+};
+
 typedef struct {
     SDL_FRect rect;
     SDL_FRect srcRect; // rect on texture to render
     SDL_FRect prevPos;
     Uint32 prevPosTicks;
     Ball* heldBall;
+    HandStatus status;
 } Hand;
 
 int WINDOW_W = 1920;
@@ -292,34 +299,24 @@ GamepadInfo getGamepadInfo(GamepadInfo prevInput){
     Sint16 lTrigger = (leftTrigger / 32767.0f) * 100;
     Sint16 rTrigger = (rightTrigger / 32767.0f) * 100;
     
-    bool lTrigPressed = lTrigger > 10;
-    bool rTrigPressed = rTrigger > 10;
+    bool lTrigHeld = lTrigger > 10;
+    bool rTrigHeld = rTrigger > 10;
+    
+    bool lTrigPressed = false;
+    bool rTrigPressed = false;
 
-    Uint64 lTrigPressedTicks, rTrigPressedTicks;
-    rTrigPressedTicks = 0; // remove this after testing
-    lTrigPressedTicks = 0;
+    // Now determining if triggers have been pressed right now.
+    if(lTrigHeld && !prevInput.lTrigHeld){
+        lTrigPressed = true; 
+    } 
 
-    // Figure out if the triggers are really pressed based off of last input.
-    if(prevInput.lTrigHeld && lTrigPressed){
-        // check if its been held for a while
-        if(prevInput.lTrigPressedTicks + 500 < SDL_GetTicks()){
-            lTrigPressed = false;
-            lTrigPressedTicks = 0;
-        } else {
-            lTrigPressedTicks = prevInput.lTrigPressedTicks;
-        }
-    } else if(!prevInput.lTrigHeld && lTrigPressed){
-        // mark fields that it has been pressed at SDL_GetTicks() time
-        lTrigPressedTicks = SDL_GetTicks(); 
-    } else if(prevInput.lTrigHeld && !lTrigPressed){
-        // maybe extra
-        lTrigPressed = false;
-        lTrigPressedTicks = 0;
+    if(rTrigHeld && !prevInput.rTrigHeld){
+        rTrigPressed = true;
     }
 
-    GamepadInfo info = {lsX, lsY, rsX, rsY, lTrigPressed, rTrigPressed, 
-                        isSouthBtnPressed, lTrigPressedTicks, 
-                        rTrigPressedTicks, true};
+    GamepadInfo inputInfo = {lsX, lsY, rsX, rsY, 
+                            lTrigPressed, lTrigHeld, rTrigPressed, rTrigheld,
+                            true};
     return info;
 }
 
