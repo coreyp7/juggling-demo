@@ -1,3 +1,7 @@
+[youtube link](https://youtu.be/AlNsb7234oE?si=h7bvZU0JFugyjpaT)
+
+[site link](https://coreypierce.me/project/2025/02/02/juggling-demo.html)
+
 Footage of this is found on my youtube (also can find it on my website).
 
 This was an idea I had for awhile that I thought would be neat: a juggling game with a gampad (written specifically for an xbox controller).
