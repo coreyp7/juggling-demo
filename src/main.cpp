@@ -52,19 +52,28 @@ Uint32 frameTimeToComplete = -1;
 static SDL_Texture* handsTexture = NULL;
 static SDL_Texture* ballTexture = NULL;
 
-Hand rightHand = {{600, 700, 150, 150}, {680, 0, 680, 861}, NULL, 0};
-Hand leftHand = {{200, 700, 150, 150}, {0, 0, 680, 861}, NULL, 0};
+//Hand rightHand = {{600, 700, 150, 150}, {680, 0, 680, 861}, NULL, 0};
+//Hand leftHand = {{200, 700, 150, 150}, {0, 0, 680, 861}, NULL, 0};
+int handSize = 125;
+float ballSize = 125;
+Hand rightHand = {{600, 700, handSize, handSize}, {680, 0, 680, 861}, NULL, 0};
+Hand leftHand = {{200, 700, handSize, handSize}, {0, 0, 680, 861}, NULL, 0};
 Hand* hands[2] = {&rightHand, &leftHand};
 //hands[1] = &leftHand;
 //Ball ball = {{600, 0, 150, 150}, 0, 0, false};
 std::vector<Ball*> balls;
 
-int handSpeed = 17;
+//int handSpeed = 17;
+int handSpeed = 20;
+//int handSpeed = 24;
 float handThrowForce = 42.f;
-float handThrowForceVerticalMultiplier = 1.8;
-int gravity = 1600;
+//float handThrowForceVerticalMultiplier = 1.8;
+float handThrowForceVerticalMultiplier = 1.2;
+int gravity = 2500;
+//int gravity = 1600;
 //int gravity = 800;
 //int gravity = 15;
+int handClosingSpeedTicks = 125;
 
 // Tick counters for performance measuring only
 Uint64 startTime;
@@ -100,11 +109,11 @@ int main(int argc, char* argv[]) {
     int running = 1;
 
     // Setup gamestate (balls)
-    Ball* ball1 = new Ball{{600, 0, 150, 150}, 0, 0, false};
+    Ball* ball1 = new Ball{{600, 0, ballSize, ballSize}, 0, 0, false};
     //Ball* ball2 = new Ball{{300, 0, 150, 150}, 0, 0, false};
-    Ball* ball2 = new Ball{{leftHand.rect.x, leftHand.rect.y-200, 150, 150}, 0, 0, false};
+    Ball* ball2 = new Ball{{leftHand.rect.x, leftHand.rect.y-200, ballSize, ballSize}, 0, 0, false};
     //Ball* ball3 = new Ball{{900, 0, 150, 150}, 0, 0, false};
-    Ball* ball3 = new Ball{{rightHand.rect.x, rightHand.rect.y-200, 150, 150}, 0, 0, false};
+    Ball* ball3 = new Ball{{rightHand.rect.x, rightHand.rect.y-200, ballSize, ballSize}, 0, 0, false};
     balls.push_back(ball1); 
     balls.push_back(ball2); 
     balls.push_back(ball3); 
@@ -246,16 +255,18 @@ void render(){
 
     // Render hands
     //SDL_RenderTexture(renderer, hands, NULL, NULL);
-    SDL_FRect rhRect = {rightHand.rect.x, rightHand.rect.y, 150, 150};
+    SDL_FRect rhRect = {rightHand.rect.x, rightHand.rect.y, handSize, handSize};
     SDL_RenderTexture(renderer, handsTexture, &(rightHand.srcRect), &rhRect);
-    SDL_FRect lhRect = {leftHand.rect.x, leftHand.rect.y, 150, 150};
+    SDL_FRect lhRect = {leftHand.rect.x, leftHand.rect.y, handSize, handSize};
     SDL_RenderTexture(renderer, handsTexture, &(leftHand.srcRect), &lhRect);
 
     // Render balls
     for(int i=0; i<balls.size(); i++){
         Ball* ball = balls[i];
-        SDL_FRect ballRect = {ball->rect.x, ball->rect.y, ball->rect.w, ball->rect.h};
-        SDL_RenderTexture(renderer, ballTexture, NULL, &ballRect);
+        //SDL_FRect ballRect = {ball->rect.x, ball->rect.y, ball->rect.w, ball->rect.h};
+        //SDL_RenderTexture(renderer, ballTexture, NULL, &ballRect);
+        SDL_RenderTexture(renderer, ballTexture, NULL, &(ball->rect));
+        //printf("w:%f, h:%f\n", ball->rect.w, ball->rect.h);
     }
 
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
@@ -350,15 +361,15 @@ int handleEvent(SDL_Event event){
 
 // hardcoded for 3 balls
 void resetBallPositions(){
-    balls[0]->rect = {rightHand.rect.x, rightHand.rect.y-1000, 150, 150};
+    balls[0]->rect = {rightHand.rect.x, rightHand.rect.y-1000, ballSize, ballSize};
     balls[0]->xVel = 0;
     balls[0]->yVel = 0;
     balls[0]->isHeld = false;
-    balls[1]->rect = {leftHand.rect.x, leftHand.rect.y-200, 150, 150};
+    balls[1]->rect = {leftHand.rect.x, leftHand.rect.y-100, ballSize, ballSize};
     balls[1]->xVel = 0;
     balls[1]->yVel = 0;
     balls[1]->isHeld = false;
-    balls[2]->rect = {rightHand.rect.x, rightHand.rect.y-200, 150, 150};
+    balls[2]->rect = {rightHand.rect.x, rightHand.rect.y-100, ballSize, ballSize};
     balls[2]->xVel = 0;
     balls[2]->yVel = 0;
     balls[2]->isHeld = false;
@@ -511,7 +522,7 @@ void updateHandState(GamepadInfo input){
     }
 
     if(input.lTrigHeld && leftHand.status == CLOSING && 
-        leftHand.closingStartTicks + 125 < SDL_GetTicks()){
+        leftHand.closingStartTicks + handClosingSpeedTicks < SDL_GetTicks()){
         // the hand is closed now 
         leftHand.status = CLOSED;
         leftHand.closingStartTicks = 0;
